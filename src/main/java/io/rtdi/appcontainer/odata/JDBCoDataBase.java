@@ -273,6 +273,7 @@ public abstract class JDBCoDataBase {
 	public static String createSQL(ODataIdentifier identifer, CharSequence projection, CharSequence where, CharSequence orderby, Integer skip, Integer top, EntityType table, Connection conn) throws SQLException {
 		String driver = conn.getMetaData().getURL();
 		boolean issqlserver = driver.startsWith("jdbc:sqlserver");
+		boolean issybase = driver.startsWith("jdbc:sybase");
 		if (top == null) {
 			top = 5000;
 		}
@@ -300,6 +301,9 @@ public abstract class JDBCoDataBase {
 			sql.append(" offset ").append(skip).append(" rows ");
 			sql.append(" fetch next ").append(top).append(" rows only");
 		} else {
+			if ( issybase ) {
+				sql.append(" rows ");
+			}
 			sql.append(" limit ").append(top);
 			if (skip != null) {
 				sql.append(" offset ").append(skip);

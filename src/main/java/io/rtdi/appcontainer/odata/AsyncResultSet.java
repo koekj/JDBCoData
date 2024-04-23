@@ -126,7 +126,7 @@ public abstract class AsyncResultSet {
 			}
 		} else if (rows.size() < stop) {
 			if (getError() != null) {
-				throw new SQLException("Reader ran into an error", getError());
+				throw new SQLException("Reader ran into an error :" + getError().getMessage(), getError());
 			}
 			throw new SQLException("Fetch did not find the data in time");
 		}

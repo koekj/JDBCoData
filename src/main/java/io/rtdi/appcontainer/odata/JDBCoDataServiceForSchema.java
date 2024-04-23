@@ -2,6 +2,12 @@ package io.rtdi.appcontainer.odata;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.time.Duration;
+
+import org.checkerframework.checker.nullness.qual.Nullable;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 import io.rtdi.appcontainer.odata.entity.ODataError;
 import io.rtdi.appcontainer.odata.entity.data.ODataResultSet;
@@ -22,155 +28,145 @@ import jakarta.ws.rs.core.Response;
  */
 public abstract class JDBCoDataServiceForSchema extends JDBCoDataService {
 
-	public abstract void warn(String msg, Object ... args);
+	public abstract void warn(String msg, Object... args);
+
+	private Cache<String, EntitySets> cacheEntitySets = Caffeine.newBuilder()
+			.expireAfterWrite(Duration.ofMinutes(getTableMetadataCacheTimeout())).build();
+	private Cache<String, Metadata> cacheMetadata = Caffeine.newBuilder()
+			.expireAfterWrite(Duration.ofMinutes(getTableMetadataCacheTimeout())).build();
 
 	@Operation(summary = "OData list of EntitySets", description = "Get the list of all EntitySets of this service", responses = {
 			@ApiResponse(responseCode = "200", description = "All OData EntitySets", content = {
-					@Content(schema = @Schema(implementation = EntitySets.class))
-			}),
+					@Content(schema = @Schema(implementation = EntitySets.class)) }),
 			@ApiResponse(responseCode = "500", description = "Any exception thrown", content = {
-					@Content(schema = @Schema(implementation = ODataError.class))
-			})
-	})
+					@Content(schema = @Schema(implementation = ODataError.class)) }) })
 	@Tag(name = "ReadDB")
 	public Response getODataEntitySetsForSchema(
 			@Parameter(description = "schemaname", example = "INFORMATION_SCHEMA") String schemaraw,
 			@Parameter(description = "Optional parameter to overrule the format", example = "json") String format) {
 		try {
-			try (Connection conn = getConnection();) {
-				String schema = ODataUtils.decodeName(schemaraw);
-				EntitySets ret = new EntitySets();
-				try (ResultSet rs = conn.getMetaData().getTables(conn.getCatalog(), schema, null, null);) {
-					while (rs.next()) {
-						/*
-						 * 1.TABLE_CAT String => table catalog (may be null) 2.TABLE_SCHEM String =>
-						 * table schema (may be null) 3.TABLE_NAME String => table name 4.TABLE_TYPE
-						 * String => table type. Typical types are "TABLE","VIEW", "SYSTEM TABLE",
-						 * "GLOBAL TEMPORARY","LOCAL TEMPORARY", "ALIAS", "SYNONYM". 5.REMARKS String =>
-						 * explanatory comment on the table (may be null) 6.TYPE_CAT String => the types
-						 * catalog (may be null) 7.TYPE_SCHEM String => the types schema (may be null)
-						 * 8.TYPE_NAME String => type name (may be null) 9.SELF_REFERENCING_COL_NAME
-						 * String => name of the designated "identifier" column of a typed table (may be
-						 * null) 10.REF_GENERATION String => specifies how values in
-						 * SELF_REFERENCING_COL_NAME are created. Values are "SYSTEM", "USER",
-						 * "DERIVED". (may be null)
-						 */
-						String tablename = rs.getString(3);
-						String tabletype = rs.getString(4);
-						switch (tabletype) {
-						case "TABLE":
-						case "VIEW":
-							// case "ALIAS":
-							// case "SYNONYM":
-						case "SYSTEM TABLE":
-							ret.addTable(schema, ODataUtils.encodeName(tablename));
-							break;
-						default:
-							break;
+			String key = createKey(schemaraw, format);
+			@Nullable
+			EntitySets ret = cacheEntitySets.getIfPresent(key);
+			if (ret == null) {
+				try (Connection conn = getConnection();) {
+					String schema = ODataUtils.decodeName(schemaraw);
+					ret = new EntitySets();
+					try (ResultSet rs = conn.getMetaData().getTables(conn.getCatalog(), schema, null, null);) {
+						while (rs.next()) {
+							/*
+							 * 1.TABLE_CAT String => table catalog (may be null) 2.TABLE_SCHEM String =>
+							 * table schema (may be null) 3.TABLE_NAME String => table name 4.TABLE_TYPE
+							 * String => table type. Typical types are "TABLE","VIEW", "SYSTEM TABLE",
+							 * "GLOBAL TEMPORARY","LOCAL TEMPORARY", "ALIAS", "SYNONYM". 5.REMARKS String =>
+							 * explanatory comment on the table (may be null) 6.TYPE_CAT String => the types
+							 * catalog (may be null) 7.TYPE_SCHEM String => the types schema (may be null)
+							 * 8.TYPE_NAME String => type name (may be null) 9.SELF_REFERENCING_COL_NAME
+							 * String => name of the designated "identifier" column of a typed table (may be
+							 * null) 10.REF_GENERATION String => specifies how values in
+							 * SELF_REFERENCING_COL_NAME are created. Values are "SYSTEM", "USER",
+							 * "DERIVED". (may be null)
+							 */
+							String tablename = rs.getString(3);
+							String tabletype = rs.getString(4);
+							switch (tabletype) {
+							case "TABLE":
+							case "VIEW":
+								// case "ALIAS":
+								// case "SYNONYM":
+							case "SYSTEM TABLE":
+								ret.addTable(schema, ODataUtils.encodeName(tablename));
+								break;
+							default:
+								break;
+							}
 						}
 					}
 				}
-				return createResponse(200, ret, format, request);
+				cacheEntitySets.put(key, ret);
 			}
+			return createResponse(200, ret, format, request);
 		} catch (Exception e) {
 			ODataError error = new ODataError(e);
 			return createResponse(error.getStatusCode(), error, format, request);
 		}
 	}
 
-	@Operation(
-			summary = "OData $metadata",
-			description = "The $metadata document describing the service",
-			responses = {
-					@ApiResponse(
-	                    responseCode = "200",
-	                    description = "The OData $metadata document about this service",
-	                    content = {
-	                            @Content(
-	                                    schema = @Schema(implementation = Metadata.class)
-	                            )
-	                    }
-                    ),
-					@ApiResponse(
-							responseCode = "500", 
-							description = "Any exception thrown",
-		                    content = {
-		                            @Content(
-		                                    schema = @Schema(implementation = ODataError.class)
-		                            )
-		                    }
-					)
-            })
+	@Operation(summary = "OData $metadata", description = "The $metadata document describing the service", responses = {
+			@ApiResponse(responseCode = "200", description = "The OData $metadata document about this service", content = {
+					@Content(schema = @Schema(implementation = Metadata.class)) }),
+			@ApiResponse(responseCode = "500", description = "Any exception thrown", content = {
+					@Content(schema = @Schema(implementation = ODataError.class)) }) })
 	@Tag(name = "ReadDB")
-    public Response getODataMetadataForSchema(
-   		 	@Parameter(
- 	    		description = "schemaname",
- 	    		example = "INFORMATION_SCHEMA"
- 	    		)
-    		String schemaraw,
-   		 	@Parameter(
-   	 	    		description = "Optional parameter to overrule the format",
-   	 	    		example = "json"
-   	 	    		)
-    		String format
-    		) {
+	public Response getODataMetadataForSchema(
+			@Parameter(description = "schemaname", example = "INFORMATION_SCHEMA") String schemaraw,
+			@Parameter(description = "Optional parameter to overrule the format", example = "json") String format) {
 		try {
-			try (Connection conn = getConnection();) {
-				String schema = ODataUtils.decodeName(schemaraw);
-				Metadata ret = new Metadata();
-				try (ResultSet rs = conn.getMetaData().getTables(conn.getCatalog(), schema, null, null); ) {
-					while (rs.next()) {
-						/*
-						1.TABLE_CAT String => table catalog (may be null) 
-						2.TABLE_SCHEM String => table schema (may be null) 
-						3.TABLE_NAME String => table name 
-						4.TABLE_TYPE String => table type. Typical types are "TABLE","VIEW", "SYSTEM TABLE", "GLOBAL TEMPORARY","LOCAL TEMPORARY", "ALIAS", "SYNONYM". 
-						5.REMARKS String => explanatory comment on the table (may be null) 
-						6.TYPE_CAT String => the types catalog (may be null) 
-						7.TYPE_SCHEM String => the types schema (may be null) 
-						8.TYPE_NAME String => type name (may be null) 
-						9.SELF_REFERENCING_COL_NAME String => name of the designated "identifier" column of a typed table (may be null) 
-						10.REF_GENERATION String => specifies how values in SELF_REFERENCING_COL_NAME are created. Values are "SYSTEM", "USER", "DERIVED". (may be null) 
-					    */
-						String tablename = rs.getString(3);
-						String tabletype = rs.getString(4);
-						switch (tabletype) {
-						case "TABLE":
-						case "VIEW":
-						// case "ALIAS":
-						// case "SYNONYM":
-						case "SYSTEM TABLE":
-							String name = ODataUtils.encodeName(tablename);
-							ODataIdentifier identifier = createODataIdentifier(schema, name);							
-							EntityType table = getMetadata(conn, identifier);
-							if ( (table.getPK() == null) || table.getPK().isEmpty() ) {
-								warn("Table {} doesn't have a primary key index, so it's not usable within odata", tablename);
-							} else {
-								ret.addObject(table);
+			String key = createKey(schemaraw, format);
+			@Nullable
+			Metadata ret = cacheMetadata.getIfPresent(key);
+			if ( ret == null ) {
+				try (Connection conn = getConnection();) {
+					String schema = ODataUtils.decodeName(schemaraw);
+					ret = new Metadata();
+					try (ResultSet rs = conn.getMetaData().getTables(conn.getCatalog(), schema, null, null);) {
+						while (rs.next()) {
+							/*
+							 * 1.TABLE_CAT String => table catalog (may be null) 2.TABLE_SCHEM String =>
+							 * table schema (may be null) 3.TABLE_NAME String => table name 4.TABLE_TYPE
+							 * String => table type. Typical types are "TABLE","VIEW", "SYSTEM TABLE",
+							 * "GLOBAL TEMPORARY","LOCAL TEMPORARY", "ALIAS", "SYNONYM". 5.REMARKS String =>
+							 * explanatory comment on the table (may be null) 6.TYPE_CAT String => the types
+							 * catalog (may be null) 7.TYPE_SCHEM String => the types schema (may be null)
+							 * 8.TYPE_NAME String => type name (may be null) 9.SELF_REFERENCING_COL_NAME
+							 * String => name of the designated "identifier" column of a typed table (may be
+							 * null) 10.REF_GENERATION String => specifies how values in
+							 * SELF_REFERENCING_COL_NAME are created. Values are "SYSTEM", "USER",
+							 * "DERIVED". (may be null)
+							 */
+							String tablename = rs.getString(3);
+							String tabletype = rs.getString(4);
+							switch (tabletype) {
+							case "TABLE":
+							case "VIEW":
+								// case "ALIAS":
+								// case "SYNONYM":
+							case "SYSTEM TABLE":
+								String name = ODataUtils.encodeName(tablename);
+								ODataIdentifier identifier = createODataIdentifier(schema, name);
+								EntityType table = getMetadata(conn, identifier);
+								if ((table.getPK() == null) || table.getPK().isEmpty()) {
+									warn("Table {} doesn't have a primary key index, so it's not usable within odata",
+											tablename);
+								} else {
+									ret.addObject(table);
+								}
+								break;
+							default:
+								break;
 							}
-							break;
-						default:
-							break;
+	
 						}
-					
 					}
+					cacheMetadata.put(key, ret);
 				}
-				return createResponse(200, ret, format, request);
 			}
+			return createResponse(200, ret, format, request);
 		} catch (Exception e) {
 			ODataError error = new ODataError(e);
 			return createResponse(error.getStatusCode(), error, format, request);
 		}
+	}
+
+	private String createKey(String schemaraw, String format) {
+		return schemaraw + "/" + (format == null ? "" : format);
 	}
 
 	@Operation(summary = "OData EntitySet", description = "Read the data of a table", responses = {
 			@ApiResponse(responseCode = "200", description = "The resultset of the table", content = {
-					@Content(schema = @Schema(implementation = ODataResultSet.class))
-			}),
+					@Content(schema = @Schema(implementation = ODataResultSet.class)) }),
 			@ApiResponse(responseCode = "500", description = "Any exception thrown", content = {
-					@Content(schema = @Schema(implementation = ODataError.class))
-			})
-	})
+					@Content(schema = @Schema(implementation = ODataError.class)) }) })
 	@Tag(name = "ReadDB")
 	public Response getODataEntitySetForSchema(
 			@Parameter(description = "schemaname", example = "INFORMATION_SCHEMA") String schemaraw,
@@ -196,12 +192,9 @@ public abstract class JDBCoDataServiceForSchema extends JDBCoDataService {
 
 	@Operation(summary = "Select a single OData Entity", description = "Read one row of a table based on its key", responses = {
 			@ApiResponse(responseCode = "200", description = "The resultset of the row", content = {
-					@Content(schema = @Schema(implementation = ODataResultSet.class))
-			}),
+					@Content(schema = @Schema(implementation = ODataResultSet.class)) }),
 			@ApiResponse(responseCode = "500", description = "Any exception thrown", content = {
-					@Content(schema = @Schema(implementation = ODataError.class))
-			})
-	})
+					@Content(schema = @Schema(implementation = ODataError.class)) }) })
 	@Tag(name = "ReadDB")
 	public Response getODataEntityRowForSchema(
 			@Parameter(description = "schemaname", example = "INFORMATION_SCHEMA") String schemaraw,
@@ -224,12 +217,9 @@ public abstract class JDBCoDataServiceForSchema extends JDBCoDataService {
 
 	@Operation(summary = "OData EntitySet", description = "Read the data of a table", responses = {
 			@ApiResponse(responseCode = "200", description = "The resultset of the table", content = {
-					@Content(schema = @Schema(type = "int"))
-			}),
+					@Content(schema = @Schema(type = "int")) }),
 			@ApiResponse(responseCode = "500", description = "Any exception thrown", content = {
-					@Content(schema = @Schema(implementation = ODataError.class))
-			})
-	})
+					@Content(schema = @Schema(implementation = ODataError.class)) }) })
 	@Tag(name = "ReadDB")
 	public Response getODataEntitySetCountForSchema(
 			@Parameter(description = "schemaname", example = "INFORMATION_SCHEMA") String schemaraw,
