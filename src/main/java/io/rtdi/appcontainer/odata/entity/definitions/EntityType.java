@@ -75,7 +75,7 @@ public class EntityType extends ODataBase {
 	@XmlAttribute(name = "Name")
 	@JsonIgnore
 	public String getName() {
-		return identifier.getEntityType();
+		return identifier.getDBObjectName();
 	}
 	
 	@JsonAnyGetter

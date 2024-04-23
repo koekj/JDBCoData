@@ -22,8 +22,8 @@ public class EntitySets extends LinkedHashMap<String, Object> {
 		this.put(ODataUtils.VALUE, value);
 	}
 	
-	public void addTable(String name) throws ODataException {
-		value.add(new ODataEntityMetadata(name, name));
+	public void addTable(String dbSchema, String name) throws ODataException {
+		value.add(new ODataEntityMetadata(dbSchema + "." + name, name));
 	}
 	
 	@XmlElementWrapper(name="DataServices", namespace = "http://docs.oasis-open.org/odata/ns/edmx")

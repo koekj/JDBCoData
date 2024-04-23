@@ -20,4 +20,10 @@ public class ODataProperty {
 		return value;
 	}
 
+	@Override
+	public String toString() {
+		return "ODataProperty [name=" + name + ", value=" + value + "]";
+	}
+
+	
 }

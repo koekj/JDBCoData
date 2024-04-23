@@ -45,7 +45,7 @@ public class EntityContainer {
 	}
 	
 	public void addTable(EntityType table) {
-		tables.put(table.getName(), new EntityContainerReference(table.getIdentifier()));
+		tables.put(table.getIdentifier().getDBSchema() + '.' + table.getName(), new EntityContainerReference(table.getIdentifier()));
 	}
 	
 	@Override

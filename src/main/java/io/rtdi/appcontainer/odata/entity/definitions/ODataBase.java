@@ -29,4 +29,10 @@ public class ODataBase {
 		}
 	}
 
+	@Override
+	public String toString() {
+		return "ODataBase [annotations=" + annotations + "]";
+	}
+
+	
 }

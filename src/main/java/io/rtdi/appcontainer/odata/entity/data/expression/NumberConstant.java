@@ -59,8 +59,12 @@ public class NumberConstant extends Expression implements IParameterValue {
 	}
 
 	@Override
-	public Object getValue() throws ODataException {
-		return text.toString();
+	public Number getValue() throws ODataException {
+		String value = text.toString();
+		if ( value.indexOf(".") >= 0 ) {
+			return Float.parseFloat(value);
+		}
+		return Long.parseLong(value);
 	}
 
 }

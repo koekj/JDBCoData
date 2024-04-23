@@ -91,4 +91,11 @@ public class ODataResultSet extends LinkedHashMap<String, Object> {
 	public void setNextLink(String nextlink) {
 		this.put(ODataUtils.NEXTLINK, nextlink);
 	}
+
+	@Override
+	public String toString() {
+		return "ODataResultSet [value=" + value + "]";
+	}
+	
+	
 }

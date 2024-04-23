@@ -29,4 +29,6 @@ public class ODataRecord extends LinkedHashMap<String, Object> {
 		}
 
 	}
+	
+	
 }

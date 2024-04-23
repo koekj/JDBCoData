@@ -23,4 +23,11 @@ public class ODataProperties {
 	public Map<String, ODataProperty> getProperties() {
 		return properties;
 	}
+
+	@Override
+	public String toString() {
+		return "ODataProperties [properties=" + properties + "]";
+	}
+	
+	
 }

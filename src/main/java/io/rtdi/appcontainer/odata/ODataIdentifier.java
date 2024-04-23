@@ -30,7 +30,8 @@ public class ODataIdentifier {
 	 * @param dbobjectname
 	 */
 	public ODataIdentifier(String dbschema, String dbobjectname) {
-		this(dbschema, dbobjectname, createEntityType(dbschema, dbobjectname), ENTITYSETNAME, ENTITYTPE);
+		this(dbschema, dbobjectname, dbobjectname, dbobjectname, dbschema + "." + dbobjectname);
+		this.entitytype = createEntityType(dbschema, dbobjectname);
 		this.namespace = createNamespace(dbschema, dbobjectname);
 	}
 	
@@ -42,7 +43,7 @@ public class ODataIdentifier {
 	 * @param entityname
 	 */
 	public ODataIdentifier(String dbschema, String dbobjectname, String entityname) {
-		this(dbschema, dbobjectname, entityname, ENTITYSETNAME, ENTITYTPE);
+		this(dbschema, dbobjectname, entityname, dbschema, "");
 		this.namespace =  entityname;
 	}
 	
@@ -89,10 +90,16 @@ public class ODataIdentifier {
 			return false;
 		}
 	}
-	
+
+	@Override
+	public String toString() {
+		return "ODataIdentifier [dbschema=" + dbschema + ", dbobjectname=" + dbobjectname + ", entitysetname="
+				+ entitysetname + ", entityname=" + entityname + ", entitytype=" + entitytype + ", identifier="
+				+ identifier + ", namespace=" + namespace + "]";
+	}
 
 	public static String createEntityType(String dbschema, String dbobjectname) {
-		return dbschema + "_" + dbobjectname;
+		return dbschema + "." + dbobjectname;
 	}
 
 	public static String createNamespace(String dbschema, String dbobjectname) {

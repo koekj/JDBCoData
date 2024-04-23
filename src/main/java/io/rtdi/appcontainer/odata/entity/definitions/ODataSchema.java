@@ -13,18 +13,19 @@ import jakarta.xml.bind.annotation.XmlAttribute;
 import jakarta.xml.bind.annotation.XmlElement;
 
 /**
- * The ODataSchema is a data model and it consists of table structures (=EntityTypes) and
- * a single EntityContainer which contains all tables of a given structure.
+ * The ODataSchema is a data model and it consists of table structures
+ * (=EntityTypes) and a single EntityContainer which contains all tables of a
+ * given structure.
  *
  */
 public class ODataSchema extends ODataBase {
-	
-	private List<EntityType> entitytypes;
+
 	private EntityContainer container;
+	private List<EntityType> entitytypes;
 	private String dbschema;
-	
+
 	public ODataSchema(String dbschema) {
-		container = new EntityContainer(ODataUtils.CONTAINER);
+		container = new EntityContainer(dbschema + "_" + ODataUtils.CONTAINER);
 		this.dbschema = dbschema;
 		entitytypes = new ArrayList<>();
 	}
@@ -34,14 +35,14 @@ public class ODataSchema extends ODataBase {
 	public List<EntityType> getEntityTypes() {
 		return entitytypes;
 	}
-	
+
 	@XmlElement(name = "EntityContainer")
 	@JsonIgnore
 	public EntityContainer getEntityContainer() {
 		return container;
 	}
-	
-	@XmlAttribute(name="Namespace")
+
+	@XmlAttribute(name = "Namespace")
 	@JsonIgnore
 	public String getNamespace() {
 		return dbschema;
@@ -59,7 +60,8 @@ public class ODataSchema extends ODataBase {
 
 	@Override
 	public String toString() {
-		return String.format("OData schema %s with container %s and EntityTypes %s", dbschema, container.getName(), entitytypes);
+		return String.format("OData schema %s with container %s and EntityTypes %s", dbschema, container.getName(),
+				entitytypes);
 	}
 
 	public void addEntityType(EntityType entitytype) {

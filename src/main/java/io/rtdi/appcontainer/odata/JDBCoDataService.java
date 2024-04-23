@@ -73,7 +73,7 @@ public abstract class JDBCoDataService extends JDBCoDataBase {
     		) {
 		try {
 				EntitySets ret = new EntitySets();
-				ret.addTable("TABLE");
+				ret.addTable("SCHEMA", "TABLE");
 				return createResponse(200, ret, format, request);
 		} catch (Exception e) {
 			ODataError error = new ODataError(e);

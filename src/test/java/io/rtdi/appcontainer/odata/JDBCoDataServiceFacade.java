@@ -219,4 +219,10 @@ public class JDBCoDataServiceFacade extends JDBCoDataServiceForSchema {
 		return super.getODataEntitySetCountForSchema(schemaraw, nameraw, filter, format);
 	}
 
+	@Override
+	public void warn(String msg, Object... args) {
+		// TODO Auto-generated method stub
+		
+	}
+
 }
